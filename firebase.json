@@ -8,6 +8,7 @@
       { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
     ],
     "rewrites": [
+      { "source": "/api/session", "run": { "serviceId": "www-api", "region": "us-central1" } },
       { "source": "/api/session/**", "run": { "serviceId": "www-api", "region": "us-central1" } }
     ]
   }

@@ -120,46 +120,105 @@
       </ul>
       <footer>Games and polls use a Google sign-in. Ask Topher for an invite.</footer>
     </main>
-    <script>
-      // One sign-in for every topherhooper.com site. The sign-in itself happens on
-      // play.topherhooper.com, which sets a session cookie for the whole domain and sends the
-      // browser back here. `th_session=1` is the readable half of that cookie, so a visitor
-      // who never signed in costs no request. Details: World Wide War docs/deployment.md,
-      // "Shared sign-in".
-      (function () {
-        var PLAY = 'https://play.topherhooper.com';
-        var back = encodeURIComponent(location.origin + '/');
-        var box = document.getElementById('account');
+    <script type="module">
+      // One sign-in for every topherhooper.com site. Signing in here opens Google's pop-up on
+      // this page, then asks the shared server (World Wide War's, reached through the
+      // /api/session rewrite in firebase.json) for a session cookie that covers the whole
+      // domain, so play.topherhooper.com is signed in too. `th_session` is the readable half
+      // of that cookie: 1 means signed in, so a visitor who never signed in costs no request.
+      // Details: World Wide War docs/deployment.md, "Shared sign-in".
+      const PLAY = 'https://play.topherhooper.com';
+      const SDK = 'https://www.gstatic.com/firebasejs/12.9.0';
+      // Public identifiers, the same ones the game ships in its own bundle.
+      const CONFIG = {
+        apiKey: 'AIzaSyDsG81Moo9f3vgnYiWfdZDHT7QrBFuL0Sc',
+        authDomain: 'play.topherhooper.com',
+        projectId: 'fluted-citizen-269819',
+      };
+      const box = document.getElementById('account');
+      const fallback = PLAY + '/signin?return=' + encodeURIComponent(location.origin + '/');
 
-        function link(text, href) {
-          var a = document.createElement('a');
-          a.textContent = text;
-          a.href = href;
-          return a;
-        }
-        function signedOut() {
-          box.replaceChildren(link('Sign in', PLAY + '/signin?return=' + back));
-        }
-        function signedIn(name) {
-          var who = document.createElement('span');
-          who.textContent = 'Signed in as ' + name;
-          box.replaceChildren(who, link('Sign out', PLAY + '/signout?return=' + back));
-        }
+      // Loaded up front, not on click: a pop-up opened after an await is a blocked pop-up.
+      const sdk = Promise.all([
+        import(SDK + '/firebase-app.js'),
+        import(SDK + '/firebase-auth.js'),
+      ]).then(([app, auth]) => ({
+        auth,
+        handle: auth.initializeAuth(app.initializeApp(CONFIG), {
+          // The cookie is the session. This page keeps no sign-in of its own.
+          persistence: auth.inMemoryPersistence,
+          popupRedirectResolver: auth.browserPopupRedirectResolver,
+        }),
+      }));
+      let ready = null;
+      sdk.then(
+        (loaded) => (ready = loaded),
+        () => {}, // SDK blocked or offline: "Sign in" stays a plain link to the fallback page
+      );
 
-        var hinted = document.cookie.split(';').some(function (c) {
-          return c.trim().indexOf('th_session=1') === 0;
+      function el(tag, text) {
+        const node = document.createElement(tag);
+        node.textContent = text;
+        return node;
+      }
+
+      function signedOut(message) {
+        const link = el('a', 'Sign in');
+        link.href = fallback;
+        link.addEventListener('click', (event) => {
+          if (ready === null) return; // follow the link
+          event.preventDefault();
+          void signIn();
         });
-        if (!hinted) return signedOut();
-        fetch('/api/session/me', { credentials: 'same-origin' })
-          .then(function (res) {
-            return res.ok ? res.json() : null;
-          })
-          .then(function (me) {
-            if (me && me.name) signedIn(me.name);
-            else signedOut();
-          })
-          .catch(signedOut);
-      })();
+        box.replaceChildren(...(message ? [el('span', message)] : []), link);
+      }
+
+      function signedIn(name) {
+        const out = el('a', 'Sign out');
+        out.href = '#';
+        out.addEventListener('click', (event) => {
+          event.preventDefault();
+          fetch('/api/session', { method: 'DELETE' }).then(() => signedOut(), () => signedOut());
+        });
+        box.replaceChildren(el('span', 'Signed in as ' + name), out);
+      }
+
+      async function signIn() {
+        const { auth, handle } = ready;
+        try {
+          const result = await auth.signInWithPopup(handle, new auth.GoogleAuthProvider());
+          const idToken = await result.user.getIdToken();
+          const res = await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          });
+          if (!res.ok) throw new Error('session ' + res.status);
+          signedIn(result.user.displayName || result.user.email || 'you');
+        } catch (err) {
+          const code = (err && err.code) || '';
+          if (
+            code === 'auth/popup-blocked' ||
+            code === 'auth/operation-not-supported-in-this-environment'
+          ) {
+            location.assign(fallback); // phones and pop-up blockers: a full-page sign-in
+          } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+            signedOut();
+          } else {
+            signedOut('Sign-in failed, try again.');
+          }
+        }
+      }
+
+      const hinted = document.cookie.split(';').some((c) => c.trim() === 'th_session=1');
+      if (!hinted) {
+        signedOut();
+      } else {
+        fetch('/api/session/me')
+          .then((res) => (res.ok ? res.json() : null))
+          .then((me) => (me && me.name ? signedIn(me.name) : signedOut()))
+          .catch(() => signedOut());
+      }
     </script>
   </body>
 </html>

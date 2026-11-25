@@ -10,12 +10,14 @@ was retired in November 2026 and is still in git history before the commit that 
 
 ## Sign-in
 
-The page shows "Sign in" or "Signed in as …" at the top right. It shares one sign-in with
-play.topherhooper.com: the Sign in link goes to `play.topherhooper.com/signin`, which signs the
-visitor in with Google, sets a session cookie for all of topherhooper.com, and sends them back
-here. `firebase.json` rewrites `/api/session/**` to World Wide War's Cloud Run service so this
-page can ask who is signed in. How it works and the one-time IAM grant it needs are in World
-Wide War's `docs/deployment.md`, "Shared sign-in".
+The page shows "Sign in" or "Signed in as …" at the top right. Sign in opens Google's pop-up
+right here, then asks World Wide War's server for a session cookie that covers all of
+topherhooper.com, so play.topherhooper.com is signed in too; Sign out clears it everywhere.
+`firebase.json` rewrites `/api/session` to that server. The Firebase SDK loads from Google's
+CDN, so there is still no build. Where a pop-up cannot open (some phones, pop-up blockers) the
+link falls back to a plain sign-in page at `play.topherhooper.com/signin`. How it works, and
+the Google settings that have to list `topherhooper.com`, are in World Wide War's
+`docs/deployment.md`, "Shared sign-in" and "Sign-in origins".
 
 ## Adding a project
 
