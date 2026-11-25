@@ -1,12 +1,21 @@
 # topherhooper.com
 
-The front page for the domain: one static page that links to each project. No build, no
-sign-in, no server. It lives in `site/` and is served by Firebase Hosting as the site
+The front page for the domain: one static page that links to each project. No build and no
+server of its own. It lives in `site/` and is served by Firebase Hosting as the site
 `topherhooper-home` in the Google Cloud project `fluted-citizen-269819`, the same project as
 World Wide War (play.topherhooper.com).
 
 Until January 2025 this repo held a GPT-4 chatbot (React + FastAPI on Cloud Run). That code
 was retired in November 2026 and is still in git history before the commit that removed it.
+
+## Sign-in
+
+The page shows "Sign in" or "Signed in as …" at the top right. It shares one sign-in with
+play.topherhooper.com: the Sign in link goes to `play.topherhooper.com/signin`, which signs the
+visitor in with Google, sets a session cookie for all of topherhooper.com, and sends them back
+here. `firebase.json` rewrites `/api/session/**` to World Wide War's Cloud Run service so this
+page can ask who is signed in. How it works and the one-time IAM grant it needs are in World
+Wide War's `docs/deployment.md`, "Shared sign-in".
 
 ## Adding a project
 

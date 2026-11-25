@@ -75,6 +75,19 @@
         color: var(--muted);
         margin-top: 2px;
       }
+      .account {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        min-height: 1.5em;
+        margin: -32px 0 16px;
+        color: var(--muted);
+        font-size: 0.9375rem;
+      }
+      .account a {
+        color: var(--accent);
+        font-weight: 600;
+      }
       footer {
         margin-top: 40px;
         color: var(--muted);
@@ -84,6 +97,8 @@
   </head>
   <body>
     <main>
+      <!-- Filled in by the script below; empty if it cannot tell who is signed in. -->
+      <div class="account" id="account"></div>
       <h1>topherhooper.com</h1>
       <p class="lede">Hobby projects and games to play with friends.</p>
       <ul>
@@ -105,5 +120,46 @@
       </ul>
       <footer>Games and polls use a Google sign-in. Ask Topher for an invite.</footer>
     </main>
+    <script>
+      // One sign-in for every topherhooper.com site. The sign-in itself happens on
+      // play.topherhooper.com, which sets a session cookie for the whole domain and sends the
+      // browser back here. `th_session=1` is the readable half of that cookie, so a visitor
+      // who never signed in costs no request. Details: World Wide War docs/deployment.md,
+      // "Shared sign-in".
+      (function () {
+        var PLAY = 'https://play.topherhooper.com';
+        var back = encodeURIComponent(location.origin + '/');
+        var box = document.getElementById('account');
+
+        function link(text, href) {
+          var a = document.createElement('a');
+          a.textContent = text;
+          a.href = href;
+          return a;
+        }
+        function signedOut() {
+          box.replaceChildren(link('Sign in', PLAY + '/signin?return=' + back));
+        }
+        function signedIn(name) {
+          var who = document.createElement('span');
+          who.textContent = 'Signed in as ' + name;
+          box.replaceChildren(who, link('Sign out', PLAY + '/signout?return=' + back));
+        }
+
+        var hinted = document.cookie.split(';').some(function (c) {
+          return c.trim().indexOf('th_session=1') === 0;
+        });
+        if (!hinted) return signedOut();
+        fetch('/api/session/me', { credentials: 'same-origin' })
+          .then(function (res) {
+            return res.ok ? res.json() : null;
+          })
+          .then(function (me) {
+            if (me && me.name) signedIn(me.name);
+            else signedOut();
+          })
+          .catch(signedOut);
+      })();
+    </script>
   </body>
 </html>
