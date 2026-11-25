@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "topherhooper-home",
+    "public": "site",
+    "ignore": ["**/.*"],
+    "cleanUrls": true,
+    "headers": [
+      { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    ]
+  }
+}
